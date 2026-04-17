@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LumaLift — Low-Light + HD Enhancer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --bg:#080b10;--surface:#0e1420;--border:#1c2540;
+    --accent:#c8ff57;--accent2:#57c8ff;--accent3:#ff7c57;
+    --muted:#3a4560;--text:#e8edf8;--subtext:#6b7a99;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Mono',monospace}
+  body::before{
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:999;opacity:.4;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+  header{display:flex;align-items:center;justify-content:space-between;padding:24px 48px;border-bottom:1px solid var(--border)}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;letter-spacing:-.02em}
+  .logo span{color:var(--accent)}
+  .badges{display:flex;gap:8px}
+  .badge{font-size:.68rem;padding:3px 10px;border-radius:99px;font-weight:600;letter-spacing:.08em}
+  .badge-green{background:var(--accent);color:#080b10}
+  .badge-blue{background:var(--accent2);color:#080b10}
+
+  main{max-width:1100px;margin:0 auto;padding:52px 24px 80px}
+
+  .hero{text-align:center;margin-bottom:48px}
+  .hero h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5vw,3.6rem);font-weight:800;line-height:1.05;letter-spacing:-.03em}
+  .hero h1 em{color:var(--accent);font-style:normal}
+  .hero h1 strong{color:var(--accent2)}
+  .hero p{margin-top:14px;color:var(--subtext);font-size:.85rem;line-height:1.7;max-width:520px;margin-inline:auto}
+
+  /* pipeline badge */
+  .pipeline{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:36px;flex-wrap:wrap}
+  .pipe-step{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:.72rem;letter-spacing:.06em;color:var(--subtext);text-transform:uppercase}
+  .pipe-step.active{border-color:var(--accent);color:var(--accent)}
+  .pipe-arrow{color:var(--muted);font-size:.8rem}
+
+  /* drop zone */
+  .drop-zone{border:2px dashed var(--border);border-radius:16px;padding:44px 24px;text-align:center;cursor:pointer;transition:border-color .25s,background .25s;position:relative;overflow:hidden}
+  .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(200,255,87,.04)}
+  .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .drop-icon{font-size:2.4rem;margin-bottom:14px;display:block;filter:grayscale(1)opacity(.5)}
+  .drop-zone:hover .drop-icon,.drop-zone.drag-over .drop-icon{filter:none}
+  .drop-label{font-size:.83rem;color:var(--subtext)}
+  .drop-label strong{color:var(--accent)}
+
+  /* mode toggle */
+  .mode-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:24px;flex-wrap:wrap}
+  .mode-row label{font-size:.78rem;color:var(--subtext);letter-spacing:.04em}
+  .toggle-group{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .toggle-group button{
+    padding:9px 20px;border:none;background:transparent;color:var(--subtext);
+    cursor:pointer;font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.04em;
+    transition:background .2s,color .2s;
+  }
+  .toggle-group button.active{background:var(--accent);color:#080b10;font-weight:600}
+  .toggle-group button:first-child{border-right:1px solid var(--border)}
+
+  /* action btn */
+  .btn-wrap{text-align:center;margin-top:22px}
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 36px;background:var(--accent);color:#080b10;border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;letter-spacing:.02em;transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(200,255,87,.35)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+
+  /* progress */
+  .progress-wrap{margin-top:26px;display:none}
+  .progress-wrap.visible{display:block}
+  .progress-steps{display:flex;gap:16px;margin-bottom:10px;justify-content:center;flex-wrap:wrap}
+  .p-step{font-size:.72rem;color:var(--muted);letter-spacing:.05em;padding:4px 12px;border-radius:99px;border:1px solid var(--muted);transition:all .3s}
+  .p-step.active{border-color:var(--accent);color:var(--accent)}
+  .p-step.done{border-color:var(--accent2);color:var(--accent2)}
+  .progress-bar{height:3px;background:var(--border);border-radius:99px;overflow:hidden}
+  .progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .4s ease}
+
+  /* results */
+  .results{margin-top:52px;display:none}
+  .results.visible{display:block}
+  .sec-label{font-family:'Syne',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.14em;color:var(--subtext);text-transform:uppercase;margin-bottom:18px}
+
+  .compare{display:grid;gap:14px}
+  .compare.two{grid-template-columns:1fr 1fr}
+  .compare.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:700px){.compare.two,.compare.three{grid-template-columns:1fr}}
+
+  .img-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .img-card-label{padding:11px 16px;border-bottom:1px solid var(--border);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--subtext);display:flex;align-items:center;justify-content:space-between}
+  .label-left{display:flex;align-items:center;gap:8px}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .dot-low{background:#ff5757}
+  .dot-mid{background:var(--accent)}
+  .dot-hd{background:var(--accent2)}
+  .img-card img{width:100%;display:block}
+  .img-size{font-size:.65rem;color:var(--muted)}
+
+  /* stats */
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:120px}
+  .stat-val{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--accent)}
+  .stat-val.blue{color:var(--accent2)}
+  .stat-key{font-size:.68rem;color:var(--subtext);margin-top:3px;letter-spacing:.07em;text-transform:uppercase}
+
+  /* download buttons */
+  .dl-row{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
+  .dl-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:.78rem;font-weight:600;transition:background .2s,color .2s;text-decoration:none}
+  .dl-btn-green{border:1px solid var(--accent);color:var(--accent);background:transparent}
+  .dl-btn-green:hover{background:var(--accent);color:#080b10}
+  .dl-btn-blue{border:1px solid var(--accent2);color:var(--accent2);background:transparent}
+  .dl-btn-blue:hover{background:var(--accent2);color:#080b10}
+
+  /* error */
+  .error-box{margin-top:20px;padding:14px 18px;background:rgba(255,87,87,.08);border:1px solid rgba(255,87,87,.3);border-radius:8px;color:#ff8787;font-size:.8rem;display:none}
+  .error-box.visible{display:block}
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner{width:15px;height:15px;border:2px solid rgba(0,0,0,.3);border-top-color:#080b10;border-radius:50%;animation:spin .7s linear infinite}
+
+  footer{text-align:center;padding:28px;border-top:1px solid var(--border);font-size:.7rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Luma<span>Lift</span></div>
+  <div class="badges">
+    <div class="badge badge-green">CNN ENHANCE</div>
+    <div class="badge badge-blue">ESRGAN 4×</div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Low-light → Enhanced<br/>→ <strong>Full HD</strong></h1>
+    <p>Two-stage AI pipeline: your residual CNN restores brightness, then ESRGAN 4× upscales to high definition.</p>
+  </div>
+
+  <!-- Pipeline visual -->
+  <div class="pipeline">
+    <div class="pipe-step active">① Upload photo</div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">② CNN low-light fix</div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">③ ESRGAN 4× HD</div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">④ Download</div>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept="image/*"/>
+    <span class="drop-icon" id="dropIcon">🌑</span>
+    <div class="drop-label" id="dropLabel">Drop your low-light image here<br/>or <strong>click to browse</strong></div>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-row">
+    <label>Output mode:</label>
+    <div class="toggle-group">
+      <button id="btnModeHD" class="active" onclick="setMode('hd')">✦ Enhance + HD (4×)</button>
+      <button id="btnModeEnhance" onclick="setMode('enhance')">Enhance only</button>
+    </div>
+  </div>
+
+  <!-- Go button -->
+  <div class="btn-wrap">
+    <button class="btn" id="enhanceBtn" disabled>
+      <span id="btnText">✦ Run Pipeline</span>
+      <span class="spinner" id="spinner" style="display:none"></span>
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-steps">
+      <div class="p-step" id="pStep1">① CNN Enhancement</div>
+      <div class="p-step" id="pStep2">② ESRGAN Upscale</div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="sec-label">Results</div>
+    <div class="compare" id="compareGrid">
+      <!-- filled by JS -->
+    </div>
+
+    <div class="stats" id="statsRow"></div>
+
+    <div class="dl-row" id="dlRow"></div>
+  </div>
+</main>
+
+<footer>LumaLift · CNN Low-light Enhancement + ESRGAN 4× Super-Resolution</footer>
+
+<script>
+let selectedFile = null;
+let currentMode  = 'hd';
+
+const dropZone    = document.getElementById('dropZone');
+const fileInput   = document.getElementById('fileInput');
+const enhanceBtn  = document.getElementById('enhanceBtn');
+const btnText     = document.getElementById('btnText');
+const spinner     = document.getElementById('spinner');
+const progressWrap= document.getElementById('progressWrap');
+const progressFill= document.getElementById('progressFill');
+const results     = document.getElementById('results');
+const errorBox    = document.getElementById('errorBox');
+const dropIcon    = document.getElementById('dropIcon');
+const dropLabel   = document.getElementById('dropLabel');
+const compareGrid = document.getElementById('compareGrid');
+const statsRow    = document.getElementById('statsRow');
+const dlRow       = document.getElementById('dlRow');
+const pStep1      = document.getElementById('pStep1');
+const pStep2      = document.getElementById('pStep2');
+
+function setMode(m){
+  currentMode = m;
+  document.getElementById('btnModeHD').classList.toggle('active', m==='hd');
+  document.getElementById('btnModeEnhance').classList.toggle('active', m==='enhance');
+  btnText.textContent = m==='hd' ? '✦ Run Pipeline' : '✦ Enhance Only';
+}
+
+// Drag & drop
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{ e.preventDefault(); dropZone.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(f){
+  if(!f.type.startsWith('image/')){ showError('Please upload an image file.'); return; }
+  selectedFile = f;
+  dropIcon.textContent = '🌒';
+  dropLabel.innerHTML = `<strong>${f.name}</strong><br/><span style="color:var(--subtext)">${(f.size/1024).toFixed(1)} KB · click to change</span>`;
+  enhanceBtn.disabled = false;
+  hideError();
+  results.classList.remove('visible');
+}
+
+function imgSize(b64src){
+  return new Promise(res=>{
+    const i=new Image(); i.onload=()=>res(`${i.naturalWidth}×${i.naturalHeight}`); i.src=b64src;
+  });
+}
+
+enhanceBtn.addEventListener('click', async ()=>{
+  if(!selectedFile) return;
+  enhanceBtn.disabled=true;
+  spinner.style.display='block';
+  progressWrap.classList.add('visible');
+  results.classList.remove('visible');
+  hideError();
+  pStep1.className='p-step active';
+  pStep2.className='p-step';
+
+  // animate progress
+  let prog=0;
+  const tick=setInterval(()=>{
+    prog=Math.min(prog + (currentMode==='hd'? 2.5 : 5), 88);
+    progressFill.style.width=prog+'%';
+    if(prog>45){ pStep1.className='p-step done'; pStep2.className='p-step active'; }
+  }, 300);
+
+  const t0=performance.now();
+  try {
+    const fd=new FormData();
+    fd.append('image', selectedFile);
+    fd.append('mode', currentMode);
+
+    const res  = await fetch('/enhance',{method:'POST',body:fd});
+    const data = await res.json();
+    if(data.error){ showError(data.error); return; }
+
+    const elapsed=((performance.now()-t0)/1000).toFixed(1);
+    progressFill.style.width='100%';
+    pStep1.className='p-step done';
+    if(currentMode==='hd') pStep2.className='p-step done';
+    await new Promise(r=>setTimeout(r,400));
+
+    // Build image cards
+    const origSrc = 'data:image/jpeg;base64,'+data.original;
+    const enhSrc  = 'data:image/jpeg;base64,'+data.enhanced;
+    const hdSrc   = data.hd ? 'data:image/jpeg;base64,'+data.hd : null;
+
+    const [origDim, enhDim, hdDim] = await Promise.all([
+      imgSize(origSrc), imgSize(enhSrc), hdSrc ? imgSize(hdSrc) : Promise.resolve(null)
+    ]);
+
+    const cols = hdSrc ? 'three' : 'two';
+    compareGrid.className = 'compare '+cols;
+
+    let html = `
+      <div class="img-card">
+        <div class="img-card-label">
+          <div class="label-left"><span class="dot dot-low"></span>Original (low-light)</div>
+          <span class="img-size">${origDim}</span>
+        </div>
+        <img src="${origSrc}" alt="Original"/>
+      </div>
+      <div class="img-card">
+        <div class="img-card-label">
+          <div class="label-left"><span class="dot dot-mid"></span>CNN Enhanced</div>
+          <span class="img-size">${enhDim}</span>
+        </div>
+        <img src="${enhSrc}" alt="Enhanced"/>
+      </div>`;
+
+    if(hdSrc){
+      html += `
+      <div class="img-card">
+        <div class="img-card-label">
+          <div class="label-left"><span class="dot dot-hd"></span>ESRGAN 4× HD</div>
+          <span class="img-size">${hdDim}</span>
+        </div>
+        <img src="${hdSrc}" alt="HD"/>
+      </div>`;
+    }
+    compareGrid.innerHTML = html;
+
+    // Stats
+    statsRow.innerHTML = `
+      <div class="stat"><div class="stat-val">${origDim}</div><div class="stat-key">Input size</div></div>
+      ${hdSrc ? `<div class="stat"><div class="stat-val blue">${hdDim}</div><div class="stat-key">HD output size</div></div>` : ''}
+      <div class="stat"><div class="stat-val">${elapsed}s</div><div class="stat-key">Total time</div></div>
+      <div class="stat"><div class="stat-val">${hdSrc?'4×':' CNN'}</div><div class="stat-key">Upscale factor</div></div>
+    `;
+
+    // Download buttons
+    dlRow.innerHTML = `
+      <a class="dl-btn dl-btn-green" href="${enhSrc}" download="enhanced.jpg">⬇ Download Enhanced</a>
+      ${hdSrc ? `<a class="dl-btn dl-btn-blue" href="${hdSrc}" download="hd_output.jpg">⬇ Download HD (4×)</a>` : ''}
+    `;
+
+    results.classList.add('visible');
+    dropIcon.textContent='🌕';
+  } catch(err){
+    showError('Network error — is app.py running? ' + err.message);
+  } finally {
+    clearInterval(tick);
+    spinner.style.display='none';
+    btnText.textContent = currentMode==='hd' ? '✦ Run Pipeline' : '✦ Enhance Only';
+    enhanceBtn.disabled=false;
+    setTimeout(()=>{ progressWrap.classList.remove('visible'); progressFill.style.width='0%'; },800);
+  }
+});
+
+function showError(msg){ errorBox.textContent='⚠ '+msg; errorBox.classList.add('visible'); }
+function hideError(){ errorBox.classList.remove('visible'); }
+</script>
+</body>
+</html>

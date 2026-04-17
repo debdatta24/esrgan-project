@@ -1,0 +1,5 @@
+flask>=2.3
+tensorflow>=2.13
+pillow>=9.0
+numpy>=1.23
+tensorflow-hub>=0.14
